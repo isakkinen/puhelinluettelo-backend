@@ -8,7 +8,7 @@ morgan.token('body', (req, res) => JSON.stringify(req.body));
 app.use(express.json());
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'));
 app.use(cors());
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 let persons = [
     {
