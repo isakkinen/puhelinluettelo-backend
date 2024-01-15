@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
 const app = express();
@@ -10,66 +11,65 @@ app.use(morgan(':method :url :status :res[content-length] - :response-time ms :b
 app.use(cors());
 app.use(express.static('dist'))
 
+const Person = require('./models/person');
+
 const PORT = process.env.PORT || 3001;
 
-let persons = [
-    {
-        id: 1,
-        name: "Arto Hellas",
-        number: "040-123456"
-    },
-    {
-        id: 2,
-        name: "Ada Lovelace",
-        number: "39-44-5323523"
-    },
-    {
-        id: 3,
-        name: "Dan Abramov",
-        number: "12-43-2342342"
-    },
-    {
-        id: 4,
-        name: "Mary Poppendieck",
-        number: "39-23-6423122"
-    }
-]
-
 app.get('/api/persons', (req, res) => {
-    res.json(persons);
+    Person.find({}).then(persons => {
+        res.json(persons);
+    });
 });
 
 app.get('/api/persons/:id', (req, res) => {
-    const id = Number(req.params.id);
-    const person = persons.find(person => person.id === id);
-    if (!person) return res.status(404).end();
-
-    res.json(person);
+    Person.findById(req.params.id).then(person => {
+        res.json(person);
+    }).catch(error => {
+        console.log(error);
+        res.status(404).end();
+    });
 });
 
 app.delete('/api/persons/:id', (req, res) => {
-    const id = Number(req.params.id)
-    persons = persons.filter(person => person.id !== id);
-    res.status(204).end();
+    Person.deleteOne({_id: req.params.id}).then(result => {
+        res.status(204).end();
+    }).catch(error => {
+        res.status(204).send(err);
+    });
 });
 
-app.post('/api/persons', (req, res) => {
+app.post('/api/persons', async (req, res) => {
     if (!req.body.name || !req.body.number) return res.status(400).json({ error: 'name or number missing' });
     
-    const person = {
+    const person = new Person({
         id: Math.floor(Math.random() * 100000),
         name: req.body.name,
         number: req.body.number
-    };
+    });
 
-    if (persons.find(p => p.name === person.name)) return res.status(400).json({ error: 'name must be unique' });
-
-    persons.push(person);
-    res.json(person);
+    if (await Person.countDocuments({name:  person.name}) > 0) {
+        return res.status(400).json({ error: 'name must be unique' });
+    }
+    
+    person.save().then(savedPerson => {
+        res.json(savedPerson);
+    }).catch(error => {
+        console.log(error);
+        res.status(400).end();
+    });
 });
 
-app.get('/info', (req, res) => {
-    res.send(`<p>Phonebook has info for ${persons.length} people</p><p>${new Date()}</p>`);
+app.put('/api/persons/:id', (req, res) => {
+    Person.findOneAndUpdate({_id: req.params.id}, {number: req.body.number}, {new: true})
+        .then(updatedPerson => {
+            res.json(updatedPerson);
+        }).catch(error => {
+            res.status(400).end();
+    });
+});
+
+app.get('/info', async (req, res) => {
+    res.send(`<p>Phonebook has info for ${await Person.countDocuments({})} people</p><p>${new Date()}</p>`);
 });
 
 app.listen(PORT, () => {
