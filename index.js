@@ -38,23 +38,25 @@ app.delete('/api/persons/:id', (req, res, next) => {
 app.post('/api/persons', async (req, res, next) => {
     if (!req.body.name || !req.body.number) return res.status(400).json({ error: 'name or number missing' });
     
-    const person = new Person({
-        id: Math.floor(Math.random() * 100000),
+    const person = {
         name: req.body.name,
         number: req.body.number
-    });
+    };
 
     if (await Person.countDocuments({name:  person.name}) > 0) {
         return res.status(400).json({ error: 'name must be unique' });
     }
-    
-    person.save().then(savedPerson => {
+
+    Person.create(person, {runValidators: true, context: 'save'}).then(savedPerson => {
         res.json(savedPerson);
     }).catch(error => next(error));
 });
 
 app.put('/api/persons/:id', (req, res, next) => {
-    Person.findOneAndUpdate({_id: req.params.id}, {number: req.body.number}, {new: true})
+    Person.findOneAndUpdate(
+        {_id: req.params.id}, 
+        {number: req.body.number}, 
+        {new: true, runValidators: true, context: 'query'})
         .then(updatedPerson => {
             res.json(updatedPerson);
         }).catch(error => next(error));
